@@ -22,6 +22,8 @@ jgit = "6.4.0.202211300538-r"
 
 vanniktech = "0.25.3"
 
+mockito = "3.2.0"
+
 [libraries]
 # Plugins
 
@@ -62,7 +64,7 @@ jgit-core = { module = "org.eclipse.jgit:org.eclipse.jgit", version.ref = "jgit"
 
 ## Testing
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
-
+kotlin-test-mockito = {module = "org.mockito.kotlin:mockito-kotlin", version.ref = "mockito" }
 [bundles]
 
 [plugins]

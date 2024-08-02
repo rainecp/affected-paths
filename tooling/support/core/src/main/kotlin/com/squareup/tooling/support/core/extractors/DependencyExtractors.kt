@@ -20,18 +20,39 @@ package com.squareup.tooling.support.core.extractors
 import com.squareup.tooling.models.SquareDependency
 import com.squareup.tooling.support.core.models.SquareDependency
 import org.gradle.api.Project
+import org.gradle.api.artifacts.Configuration
 import org.gradle.api.artifacts.ConfigurationContainer
 import org.gradle.api.artifacts.Dependency
 import org.gradle.api.artifacts.ProjectDependency
+import org.gradle.api.internal.artifacts.DefaultProjectComponentIdentifier
 import org.gradle.api.internal.artifacts.dependencies.AbstractExternalModuleDependency
 import org.gradle.api.internal.artifacts.dependencies.AbstractModuleDependency
 
-// Extracts Gradle Dependency objects from the given configurations
-public fun ConfigurationContainer.extractDependencies(
-  vararg configurationNames: String
-): Sequence<Dependency> {
-  return configurationNames.asSequence().flatMap { configurationName ->
-    getByName(configurationName).allDependencies.asSequence()
+public fun ConfigurationContainer.extractSquareDependencies(
+  project: Project,
+  vararg configurationNames: String,
+): Sequence<SquareDependency> {
+  return configurationNames.flatMap { configurationName ->
+    val configuration = getByName(configurationName)
+    sequenceOf(
+      configuration.extractDependencies()
+        .map { it.extractSquareDependency(project) },
+      configuration.extractProjectDependenciesFromArtifacts(project)
+    ).flatten()
+  }.asSequence()
+}
+
+public fun Configuration.extractDependencies(): Sequence<Dependency> {
+  return allDependencies.asSequence()
+}
+
+public fun Configuration.extractProjectDependenciesFromArtifacts(project: Project): Sequence<SquareDependency> {
+  return if (isCanBeResolved) {
+    resolvedConfiguration.resolvedArtifacts.asSequence()
+      .mapNotNull { artifact -> artifact.id.componentIdentifier as? DefaultProjectComponentIdentifier }
+      .map { SquareDependency(target = gradlePathToFilePath(it.identityPath.path)) }
+  } else {
+    emptySequence()
   }
 }
 
@@ -71,7 +92,7 @@ public fun Dependency.extractSquareDependency(project: Project): SquareDependenc
 // Meant to de-duplicate project name from target string.
 private fun Dependency.keyRelativeTo(relative: String = ""): String {
   if (this is ProjectDependency) {
-    return dependencyProject.path.replace(':', '/')
+    return gradlePathToFilePath(dependencyProject.path)
   }
   val s = group?.split(".", ":", "/") ?: emptyList()
   val result = when (s.firstOrNull()) {
@@ -79,4 +100,8 @@ private fun Dependency.keyRelativeTo(relative: String = ""): String {
     else -> s
   }
   return result.plus(name).joinToString("") { "/$it" }
+}
+
+private fun gradlePathToFilePath(path: String): String {
+  return path.replace(':', '/')
 }

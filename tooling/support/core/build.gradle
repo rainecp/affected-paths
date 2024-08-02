@@ -10,5 +10,6 @@ dependencies {
     compileOnly(libs.kotlin.gradle.plugin.api)
 
     testImplementation(libs.kotlin.test.junit5)
+    testImplementation(libs.kotlin.test.mockito)
     testImplementation(gradleApi())
 }

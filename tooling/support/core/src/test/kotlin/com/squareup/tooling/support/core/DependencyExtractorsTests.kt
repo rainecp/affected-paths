@@ -18,9 +18,19 @@
 package com.squareup.tooling.support.core
 
 import com.squareup.tooling.support.core.extractors.extractDependencies
+import com.squareup.tooling.support.core.extractors.extractProjectDependenciesFromArtifacts
 import com.squareup.tooling.support.core.extractors.extractSquareDependency
+import com.squareup.tooling.support.core.models.SquareDependency
+import org.gradle.api.artifacts.Configuration
+import org.gradle.api.artifacts.ResolvedArtifact
+import org.gradle.api.artifacts.ResolvedConfiguration
+import org.gradle.api.artifacts.component.ComponentArtifactIdentifier
+import org.gradle.api.internal.artifacts.DefaultProjectComponentIdentifier
 import org.gradle.testfixtures.ProjectBuilder
+import org.gradle.util.Path
 import org.junit.jupiter.api.Test
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
@@ -34,7 +44,7 @@ class DependencyExtractorsTests {
     project.dependencies.add("testConfig", "com.squareup:foo")
     project.dependencies.add("testConfig", "com.squareup:bar")
 
-    val result = project.configurations.extractDependencies("testConfig").toList()
+    val result = project.configurations.getByName("testConfig").extractDependencies().toList()
 
     // Test
     assertEquals(2, result.size)
@@ -105,5 +115,54 @@ class DependencyExtractorsTests {
     assertTrue("AbstractModuleDependency target incorrect") {
       return@assertTrue result.target == "/squareTest"
     }
+  }
+
+  @Test
+  fun `test extractProjectDependenciesFromArtifacts with empty artifacts`() {
+    // Setup
+    val project = ProjectBuilder.builder().build()
+    project.repositories.mavenCentral()
+    project.configurations.create("testConfig")
+    project.dependencies.add("testConfig", "junit:junit:4.13.2")
+    val projectDependency = ProjectBuilder.builder().withName("squareTest").withParent(project).build()
+    projectDependency.configurations.create("default") // required default configuration
+    project.dependencies.add("testConfig", projectDependency)
+
+    // Test
+    val configuration = project.configurations.getByName("testConfig")
+
+    val result = configuration.extractProjectDependenciesFromArtifacts(project)
+
+    assertTrue(result.none(), "The result should be an empty sequence")
+  }
+
+  @Test
+  fun `test extractProjectDependenciesFromArtifacts with non-empty artifacts`() {
+    // Setup
+    val project = ProjectBuilder.builder().build()
+    project.repositories.mavenCentral()
+    project.configurations.create("testConfig")
+
+    val configuration = mock<Configuration>()
+    val artifact = mock<ResolvedArtifact>()
+
+    val artifactId = mock<ComponentArtifactIdentifier>()
+    whenever(artifact.id).thenReturn(artifactId)
+
+    val id = mock<DefaultProjectComponentIdentifier>()
+    whenever(artifactId.componentIdentifier).thenReturn(id)
+    whenever(id.identityPath).thenReturn(Path.path(":includeBuild:project:path"))
+
+    val resolvedConfiguration = mock<ResolvedConfiguration>()
+    whenever(resolvedConfiguration.resolvedArtifacts).thenReturn(setOf(artifact))
+
+    whenever(configuration.resolvedConfiguration).thenReturn(resolvedConfiguration)
+    whenever(configuration.isCanBeResolved).thenReturn(true)
+
+    // Test
+    val result = configuration.extractProjectDependenciesFromArtifacts(project)
+
+    assertEquals(1, result.count())
+    assertTrue(result.contains(SquareDependency(target = "/includeBuild/project/path")))
   }
 }
