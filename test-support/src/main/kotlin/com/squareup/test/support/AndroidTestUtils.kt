@@ -38,6 +38,10 @@ public fun generateApplicationBuild(temporaryFolder: File): File {
                 versionName "1.0"
             }
         }
+        
+        repositories {
+            mavenCentral()
+        }        
       """.trimIndent())
   }
   return buildDirectory
@@ -58,6 +62,10 @@ public fun generateLibraryBuild(temporaryFolder: File): File {
                 targetSdk 17
                 minSdk 17
             }
+        }
+        
+        repositories {
+            mavenCentral()
         }
       """.trimIndent())
   }
@@ -81,6 +89,10 @@ public fun generateTestBuild(temporaryFolder: File): File {
                 minSdk 17
             }
         }
+        
+        repositories {
+            mavenCentral()
+        }        
       """.trimIndent())
   }
   return buildDirectory
